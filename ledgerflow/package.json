@@ -1,0 +1,21 @@
+{
+    "name": "ledgerflow",
+    "version": "1.0.0",
+    "private": true,
+    "description": "LedgerFlow - Enterprise Accounting Platform",
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "dev": "npm run dev --workspace=@ledgerflow/web",
+        "build": "npm run build --workspace=@ledgerflow/web",
+        "start": "npm run start --workspace=@ledgerflow/web",
+        "lint": "npm run lint --workspace=@ledgerflow/web",
+        "type-check": "npm run type-check --workspace=@ledgerflow/web"
+    },
+    "engines": {
+        "node": ">=18.0.0",
+        "npm": ">=9.0.0"
+    }
+}

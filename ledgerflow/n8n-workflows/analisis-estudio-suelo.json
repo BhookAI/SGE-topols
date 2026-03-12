@@ -1,0 +1,443 @@
+{
+  "name": "LedgerFlow - Análisis Estudios de Suelo",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "webhook/analisis-suelo",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "analisis-suelo"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": {
+          "value": "estudios_suelo",
+          "mode": "list"
+        },
+        "where": {
+          "conditions": [
+            {
+              "column": "id",
+              "value": "={{ $json.body.estudio_id }}"
+            }
+          ]
+        }
+      },
+      "id": "get-estudio",
+      "name": "Obtener Estudio",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "supabaseApi": "Supabase LedgerFlow"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "bucketId": "estudios-suelo",
+        "filePath": "={{ $json[0].pdf_original_path }}"
+      },
+      "id": "download-pdf",
+      "name": "Descargar PDF",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "supabaseApi": "Supabase LedgerFlow"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "extractText",
+        "options": {}
+      },
+      "id": "extract-pdf",
+      "name": "Extraer Texto PDF",
+      "type": "n8n-nodes-base.pdf",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "model": "kimi-k2",
+        "messages": {
+          "message": [
+            {
+              "role": "system",
+              "content": "Eres un ingeniero geotécnico experto con 20 años de experiencia en análisis de suelos para construcción en Costa Rica y Latinoamérica. Tu especialidad es identificar problemas de filtraciones, estabilidad de taludes y capacidad portante.\n\nANALIZA el siguiente estudio de suelo geotécnico y extrae la información en formato JSON estructurado.\n\nINSTRUCCIONES:\n1. Identifica el NIVEL DE FILTRACIÓN: alto, medio, bajo, crítico o ninguno\n2. Identifica el TIPO DE SUELO PRINCIPAL: arcilloso, arenoso, limoso, rocoso, orgánico, o mixto\n3. Lista TODOS los tipos de suelo detectados\n4. Proporciona RECOMENDACIONES CRÍTICAS específicas para la constructora\n5. Identifica RIESGOS para la construcción\n6. Extrae datos técnicos: profundidad de cimentación recomendada, capacidad portante, pH, humedad\n7. Genera un RESUMEN EJECUTIVO para el cliente (no técnico)\n8. Identifica ALERTAS importantes\n9. Genera CONCLUSIONES para generar una cotización\n\nFORMATO DE SALIDA (JSON estricto):\n{\n  \"nivel_filtracion\": \"alto|medio|bajo|critico|ninguno\",\n  \"tipo_suelo_principal\": \"string\",\n  \"tipos_suelo_detectados\": [\"string\"],\n  \"recomendaciones_criticas\": [\"string\"],\n  \"riesgos_identificados\": [\"string\"],\n  \"profundidad_recomendada_cimentacion\": \"string\",\n  \"capacidad_portante\": \"string\",\n  \"ph_suelo\": number,\n  \"contenido_humedad\": \"string\",\n  \"recomendacion_general\": \"string (detallado)\",\n  \"resumen_ejecutivo\": \"string (para cliente)\",\n  \"alertas\": [\"string\"],\n  \"servicios_recomendados\": [\n    {\"servicio\": \"string\", \"urgencia\": \"alta|media|baja\", \"justificacion\": \"string\"}\n  ],\n  \"estimacion_costo_min\": number,\n  \"estimacion_costo_max\": number,\n  \"confianza_analisis\": 0.0-1.0\n}"
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.text }}"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json"
+        }
+      },
+      "id": "ia-analisis",
+      "name": "IA Análisis Geotécnico",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1050, 300],
+      "credentials": {
+        "httpCustomAuth": "Kimi API Key"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": {
+          "value": "estudios_suelo",
+          "mode": "list"
+        },
+        "match": {
+          "id": "={{ $('Webhook Trigger').item.json.body.estudio_id }}"
+        },
+        "data": {
+          "raw_text_analysis": "={{ $('Extraer Texto PDF').item.json.text }}",
+          "raw_text_extracted_at": "={{ $now }}",
+          "conclusiones_ia": "={{ $('IA Análisis Geotécnico').item.json }}",
+          "conclusiones_ia_generadas_at": "={{ $now }}",
+          "conclusiones_ia_modelo": "kimi-k2",
+          "conclusiones_ia_confianza": "={{ $('IA Análisis Geotécnico').item.json.confianza_analisis }}",
+          "estado_analisis": "completado"
+        }
+      },
+      "id": "update-estudio",
+      "name": "Actualizar Estudio",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1250, 300],
+      "credentials": {
+        "supabaseApi": "Supabase LedgerFlow"
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-1",
+              "leftValue": "={{ $('IA Análisis Geotécnico').item.json.nivel_filtracion }}",
+              "rightValue": "critico",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-critico",
+      "name": "¿Nivel Crítico?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": {
+          "value": "cotizaciones",
+          "mode": "list"
+        },
+        "data": {
+          "tenant_id": "={{ $('Obtener Estudio').item.json[0].tenant_id }}",
+          "cliente_id": "={{ $('Obtener Estudio').item.json[0].cliente_id }}",
+          "proyecto_id": "={{ $('Obtener Estudio').item.json[0].proyecto_id }}",
+          "estudio_suelo_id": "={{ $('Webhook Trigger').item.json.body.estudio_id }}",
+          "titulo": "={{ 'Cotización basada en estudio ' + $('Obtener Estudio').item.json[0].codigo_estudio }}",
+          "descripcion": "={{ 'Generada automáticamente basada en análisis de IA del estudio geotécnico' }}",
+          "servicios_json": "={{ JSON.stringify($('IA Análisis Geotécnico').item.json.servicios_recomendados.map(s => ({\n            concepto: s.servicio,\n            descripcion: s.justificacion,\n            cantidad: 1,\n            unidad: 'servicio',\n            precio_unitario: 0,\n            subtotal: 0,\n            categoria: 'trabajo'\n          }))) }}",
+          "basado_en_estudio": true,
+          "recomendaciones_aplicadas": "={{ JSON.stringify($('IA Análisis Geotécnico').item.json.recomendaciones_criticas) }}",
+          "estado": "borrador"
+        }
+      },
+      "id": "create-cotizacion",
+      "name": "Crear Cotización",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1650, 200],
+      "credentials": {
+        "supabaseApi": "Supabase LedgerFlow"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": {
+          "value": "clientes",
+          "mode": "list"
+        },
+        "where": {
+          "conditions": [
+            {
+              "column": "id",
+              "value": "={{ $('Obtener Estudio').item.json[0].cliente_id }}"
+            }
+          ]
+        }
+      },
+      "id": "get-cliente",
+      "name": "Obtener Cliente",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1650, 400],
+      "credentials": {
+        "supabaseApi": "Supabase LedgerFlow"
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "yoenqueco@gmail.com",
+        "toEmail": "={{ $('Obtener Cliente').item.json[0].correo }}",
+        "subject": "={{ 'Análisis de Estudio de Suelo Completado - ' + $('Obtener Estudio').item.json[0].codigo_estudio }}",
+        "text": "={{ `Estimado/a ${$('Obtener Cliente').item.json[0].nombre},\n\nHemos completado el análisis de su estudio de suelo ${$('Obtener Estudio').item.json[0].codigo_estudio}.\n\nRESUMEN EJECUTIVO:\n${$('IA Análisis Geotécnico').item.json.resumen_ejecutivo}\n\nNIVEL DE FILTRACIÓN DETECTADO: ${$('IA Análisis Geotécnico').item.json.nivel_filtracion.toUpperCase()}\n\nRECOMENDACIONES CLAVE:\n${$('IA Análisis Geotécnico').item.json.recomendaciones_criticas.join('\\n- ')}\n\nSe ha generado una cotización preliminar basada en estos hallazgos.\n\nSaludos cordiales,\nEquipo LedgerFlow` }}",
+        "html": "={{ `<html><body>\n<h2>Análisis de Estudio de Suelo Completado</h2>\n<p>Estimado/a ${$('Obtener Cliente').item.json[0].nombre},</p>\n<p>Hemos completado el análisis de su estudio de suelo <strong>${$('Obtener Estudio').item.json[0].codigo_estudio}</strong>.</p>\n\n<h3>Resumen Ejecutivo</h3>\n<p>${$('IA Análisis Geotécnico').item.json.resumen_ejecutivo}</p>\n\n<h3>Nivel de Filtración Detectado</h3>\n<div style='background-color: ${$('IA Análisis Geotécnico').item.json.nivel_filtracion === 'critico' ? '#ff4444' : $('IA Análisis Geotécnico').item.json.nivel_filtracion === 'alto' ? '#ff8800' : '#44aa44'}; color: white; padding: 10px; border-radius: 5px;'>\n  <strong>${$('IA Análisis Geotécnico').item.json.nivel_filtracion.toUpperCase()}</strong>\n</div>\n\n<h3>Recomendaciones Clave</h3>\n<ul>\n${$('IA Análisis Geotécnico').item.json.recomendaciones_criticas.map(r => `<li>${r}</li>`).join('')}\n</ul>\n\n<p>Se ha generado una cotización preliminar basada en estos hallazgos.</p>\n\n<p>Saludos cordiales,<br>Equipo LedgerFlow</p>\n</body></html>` }}"
+      },
+      "id": "send-email",
+      "name": "Enviar Email Notificación",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1850, 300],
+      "credentials": {
+        "smtp": "Resend SMTP"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": {
+          "value": "reportes_cobro",
+          "mode": "list"
+        },
+        "data": {
+          "tenant_id": "={{ $('Obtener Estudio').item.json[0].tenant_id }}",
+          "cliente_id": "={{ $('Obtener Estudio').item.json[0].cliente_id }}",
+          "proyecto_id": "={{ $('Obtener Estudio').item.json[0].proyecto_id }}",
+          "tipo_cobro": "cuota",
+          "concepto": "={{ 'Pago por análisis de estudio ' + $('Obtener Estudio').item.json[0].codigo_estudio }}",
+          "monto_esperado": "={{ $('IA Análisis Geotécnico').item.json.estimacion_costo_min * 0.3 }}",
+          "fecha_esperada": "={{ $today.plus(7, 'days') }}",
+          "estado": "pendiente"
+        }
+      },
+      "id": "create-cobro",
+      "name": "Crear Reporte Cobro",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1850, 500],
+      "credentials": {
+        "supabaseApi": "Supabase LedgerFlow"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": {
+          "value": "workflow_logs",
+          "mode": "list"
+        },
+        "data": {
+          "tenant_id": "={{ $('Obtener Estudio').item.json[0].tenant_id }}",
+          "workflow_name": "analisis-estudio-suelo",
+          "event_type": "complete",
+          "entity_type": "estudio_suelo",
+          "entity_id": "={{ $('Webhook Trigger').item.json.body.estudio_id }}",
+          "status": "success",
+          "resultado": "={{ JSON.stringify({estudio_id: $('Webhook Trigger').item.json.body.estudio_id, nivel_filtracion: $('IA Análisis Geotécnico').item.json.nivel_filtracion}) }}",
+          "completed_at": "={{ $now }}"
+        }
+      },
+      "id": "log-success",
+      "name": "Log Éxito",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2050, 300],
+      "credentials": {
+        "supabaseApi": "Supabase LedgerFlow"
+      }
+    },
+    {
+      "parameters": {
+        "options": {},
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  success: true,\n  estudio_id: $('Webhook Trigger').item.json.body.estudio_id,\n  analisis_completado: true,\n  nivel_filtracion: $('IA Análisis Geotécnico').item.json.nivel_filtracion,\n  cotizacion_generada: true,\n  email_enviado: true\n}) }}"
+      },
+      "id": "respond-success",
+      "name": "Responder Éxito",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2250, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Obtener Estudio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Estudio": {
+      "main": [
+        [
+          {
+            "node": "Descargar PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar PDF": {
+      "main": [
+        [
+          {
+            "node": "Extraer Texto PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Texto PDF": {
+      "main": [
+        [
+          {
+            "node": "IA Análisis Geotécnico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA Análisis Geotécnico": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Estudio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Estudio": {
+      "main": [
+        [
+          {
+            "node": "¿Nivel Crítico?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Nivel Crítico?": {
+      "main": [
+        [
+          {
+            "node": "Crear Cotización",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Obtener Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear Cotización": {
+      "main": [
+        [
+          {
+            "node": "Obtener Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Cliente": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email Notificación",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Crear Reporte Cobro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email Notificación": {
+      "main": [
+        [
+          {
+            "node": "Log Éxito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear Reporte Cobro": {
+      "main": [
+        [
+          {
+            "node": "Log Éxito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Éxito": {
+      "main": [
+        [
+          {
+            "node": "Responder Éxito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "Error Handler"
+  },
+  "staticData": null,
+  "tags": ["ledgerflow", "geotecnia", "automation"]
+}
