@@ -7,6 +7,15 @@ const nextConfig = {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   },
+  webpack: (config, { isServer }) => {
+    // Handle optional ChromaDB dependencies
+    config.externals.push(
+      'chromadb-default-embed',
+      '@xenova/transformers',
+      'onnxruntime-node'
+    );
+    return config;
+  },
   async headers() {
     return [
       {
