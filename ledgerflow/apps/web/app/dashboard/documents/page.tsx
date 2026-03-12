@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileText, Search, Filter, Download, Eye, Trash2, RefreshCw } from 'lucide-react'
+import { FileText, Search, Filter, Download, Eye, Trash2, RefreshCw, MoreHorizontal } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
