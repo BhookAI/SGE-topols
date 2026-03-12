@@ -1,32 +1,47 @@
 /**
  * ChromaDB Client
  * Cliente para interactuar con la base de datos vectorial
+ * 
+ * NOTA: Este módulo usa importación dinámica para evitar problemas en build time
  */
 
-import { ChromaClient, Collection } from 'chromadb';
 import { RAG_CONFIG, getClientNamespace } from './config';
 
-class ChromaDBService {
-  private client: ChromaClient;
-  private collections: Map<string, Collection> = new Map();
+// Tipos para ChromaDB (evita importar en build time)
+type ChromaClientType = any;
+type CollectionType = any;
 
-  constructor() {
+class ChromaDBService {
+  private client: ChromaClientType | null = null;
+  private collections: Map<string, CollectionType> = new Map();
+  private initialized = false;
+
+  private async init() {
+    if (this.initialized) return;
+    
+    // Importación dinámica solo en runtime
+    const { ChromaClient } = await import('chromadb');
+    
     this.client = new ChromaClient({
       path: RAG_CONFIG.chroma.url,
     });
+    
+    this.initialized = true;
   }
 
   /**
    * Obtiene o crea una colección para un cliente específico
    */
-  async getOrCreateCollection(clientId: string): Promise<Collection> {
+  async getOrCreateCollection(clientId: string): Promise<CollectionType> {
+    await this.init();
+    
     const namespace = getClientNamespace(clientId);
     
     if (this.collections.has(namespace)) {
       return this.collections.get(namespace)!;
     }
 
-    const collection = await this.client.getOrCreateCollection({
+    const collection = await this.client!.getOrCreateCollection({
       name: `${RAG_CONFIG.chroma.collectionName}_${namespace}`,
       metadata: {
         clientId,
@@ -79,7 +94,7 @@ class ChromaDBService {
 
     return {
       documents: results.documents[0] || [],
-      metadatypes: results.metadatas[0] || [],
+      metadatas: results.metadatas[0] || [],
       distances: results.distances?.[0] || [],
     };
   }
@@ -88,11 +103,13 @@ class ChromaDBService {
    * Elimina todos los documentos de un cliente
    */
   async deleteClientCollection(clientId: string): Promise<void> {
+    await this.init();
+    
     const namespace = getClientNamespace(clientId);
     const collectionName = `${RAG_CONFIG.chroma.collectionName}_${namespace}`;
     
     try {
-      await this.client.deleteCollection({ name: collectionName });
+      await this.client!.deleteCollection({ name: collectionName });
       this.collections.delete(namespace);
     } catch (error) {
       console.log(`Collection ${collectionName} no existe o ya fue eliminada`);
