@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ingestDirectory, ingestSingleFile, updateClientFile, clearClientData, getIngestStats } from '@/lib/rag';
+import { ingestDirectory, ingestSingleFile, updateClientFile, clearClientData, getIngestStats } from '@/lib/rag/server';
 import * as fs from 'fs';
 import * as path from 'path';
 

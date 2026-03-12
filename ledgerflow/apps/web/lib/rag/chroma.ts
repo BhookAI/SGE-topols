@@ -1,67 +1,24 @@
+import 'server-only';
+
 /**
- * ChromaDB Client - Universal Version
- * Works in both Node.js server and safely in browser builds
+ * ChromaDB Client - Server Only
+ * This module should only be imported in server components or API routes
  */
 
 import { RAG_CONFIG, getClientNamespace } from './config';
+import { ChromaClient, Collection } from 'chromadb';
 
-// Types for ChromaDB
-type ChromaClientType = any;
-type CollectionType = any;
-
-// Check if we're in a Node.js environment
-const isNode = typeof process !== 'undefined' && process.versions?.node;
-
-// Mock implementation for browser/edge builds
-const mockChromaDB = {
-  async getOrCreateCollection() {
-    throw new Error('ChromaDB is only available in Node.js server environment');
-  },
-  async addDocuments() {
-    throw new Error('ChromaDB is only available in Node.js server environment');
-  },
-  async search() {
-    return { documents: [], metadatas: [], distances: [] };
-  },
-  async deleteClientCollection() {
-    // No-op
-  },
-  async deleteBySourceFile() {
-    // No-op
-  },
-  async getStats() {
-    return { count: 0 };
-  }
-};
-
-// Real implementation for Node.js
 class ChromaDBService {
-  private client: ChromaClientType | null = null;
-  private collections: Map<string, CollectionType> = new Map();
-  private initialized = false;
+  private client: ChromaClient;
+  private collections: Map<string, Collection> = new Map();
 
-  private async init() {
-    if (this.initialized) return;
-    if (!isNode) return;
-    
-    try {
-      // Dynamic import only works in Node.js
-      const { ChromaClient } = await import('chromadb');
-      
-      this.client = new ChromaClient({
-        path: RAG_CONFIG.chroma.url,
-      });
-      
-      this.initialized = true;
-    } catch (error) {
-      console.warn('ChromaDB initialization failed:', error);
-    }
+  constructor() {
+    this.client = new ChromaClient({
+      path: RAG_CONFIG.chroma.url,
+    });
   }
 
-  async getOrCreateCollection(clientId: string): Promise<CollectionType> {
-    await this.init();
-    if (!this.client) throw new Error('ChromaDB not available');
-    
+  async getOrCreateCollection(clientId: string): Promise<Collection> {
     const namespace = getClientNamespace(clientId);
     
     if (this.collections.has(namespace)) {
@@ -121,9 +78,6 @@ class ChromaDBService {
   }
 
   async deleteClientCollection(clientId: string): Promise<void> {
-    await this.init();
-    if (!this.client) return;
-    
     const namespace = getClientNamespace(clientId);
     const collectionName = `${RAG_CONFIG.chroma.collectionName}_${namespace}`;
     
@@ -154,5 +108,4 @@ class ChromaDBService {
   }
 }
 
-// Export singleton - use mock in browser, real in Node.js
-export const chromaDB = isNode ? new ChromaDBService() : mockChromaDB;
+export const chromaDB = new ChromaDBService();

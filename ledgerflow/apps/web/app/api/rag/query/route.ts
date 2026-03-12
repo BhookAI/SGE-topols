@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { queryDocuments, queryTransactions, extractTransactionsFromDocuments, generateExecutiveSummary } from '@/lib/rag';
+import { queryDocuments, queryTransactions, extractTransactionsFromDocuments, generateExecutiveSummary } from '@/lib/rag/server';
 
 /**
  * POST /api/rag/query
