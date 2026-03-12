@@ -9,7 +9,7 @@ import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
 import { parse } from 'csv-parse/sync';
-import { RAG_CONFIG } from '../config';
+import { RAG_CONFIG } from './config';
 
 export interface ProcessedDocument {
   content: string;
