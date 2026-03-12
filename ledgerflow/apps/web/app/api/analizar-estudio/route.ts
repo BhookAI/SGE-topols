@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceSupabaseClient } from '@/lib/supabase/server'
-import { PDFExtract } from 'pdf-extract'
+import PDFExtract from 'pdf-extract'
 import { promises as fs } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
